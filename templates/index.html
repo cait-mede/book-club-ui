@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>Book Club</h1>
+    <p>Connect with readers, discover books, build your reading community!</p>
+    <a href="{{ url_for('signup') }}" class="btn">Get Started</a>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <img src="{{ url_for('static', filename='images/groups.png') }}" alt="Create Groups" onerror="this.style.display='none'">
+        <div class="feature-icon">👥</div>
+        <h3>Create Groups</h3>
+        <p>Start your own book club and invite friends and fellow readers to join.</p>
+    </div>
+
+    <div class="feature-card">
+        <img src="{{ url_for('static', filename='images/books.png') }}" alt="Discover Books" onerror="this.style.display='none'">
+        <div class="feature-icon">🔍</div>
+        <h3>Discover Books</h3>
+        <p>Find your next favorite read with recommendations from real readers.</p>
+    </div>
+
+    <div class="feature-card">
+        <img src="{{ url_for('static', filename='images/community.png') }}" alt="Join Communities" onerror="this.style.display='none'">
+        <div class="feature-icon">🌍</div>
+        <h3>Join Communities</h3>
+        <p>Connect with readers who share your taste and love of books.</p>
+    </div>
+</div>
+{% endblock %}

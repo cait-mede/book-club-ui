@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Create Profile</h2>
+
+    {% if error %}
+    <p class="error-msg">{{ error }}</p>
+    {% endif %}
+
+    <form action="{{ url_for('signup') }}" method="POST">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" placeholder="Enter your name">
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Enter your email">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter your password">
+        </div>
+
+        <div class="form-group">
+            <label for="preferences">Reading Preferences</label>
+            <textarea id="preferences" name="preferences" placeholder="Tell us about your favorite genres"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-full">Create</button>
+    </form>
+
+    <p class="form-footer">
+        Already have an account? <a href="{{ url_for('login') }}">Sign In</a>
+    </p>
+</div>
+{% endblock %}

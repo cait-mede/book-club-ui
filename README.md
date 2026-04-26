@@ -10,3 +10,12 @@ User interface for book club application
 5. Vote on top 3 books in a list 
 6. Mark book as read with a rating/review option 
 7. See your book personality 
+
+
+## TODO:
+
+Microservices:
+- rating/review service
+- voting/polling service
+- book personality service? AI
+- scheduling service? 

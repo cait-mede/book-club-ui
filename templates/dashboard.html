@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <h2>Dashboard</h2>
+
+    <div class="getting-started">
+        <h3>Getting Started</h3>
+        <ol>
+            <li>Create or Join a Club</li>
+            <li>Browse Books</li>
+            <li>Vote on your next book</li>
+            <li>Read</li>
+            <li>Review</li>
+        </ol>
+    </div>
+
+    <div class="action-buttons">
+        <a href="{{ url_for('create_group') }}" class="action-btn">
+            <div class="action-icon">👥</div>
+            <div class="action-title">Create Group</div>
+            <div class="action-sub">Start a new club</div>
+        </a>
+
+        <a href="{{ url_for('join_group') }}" class="action-btn">
+            <div class="action-icon">🚪</div>
+            <div class="action-title">Join Club</div>
+            <div class="action-sub">Find clubs to join</div>
+        </a>
+
+        <a href="{{ url_for('search_books') }}" class="action-btn">
+            <div class="action-icon">🔍</div>
+            <div class="action-title">Search Books</div>
+            <div class="action-sub">Discover new books</div>
+        </a>
+
+        <a href="{{ url_for('my_groups') }}" class="action-btn">
+            <div class="action-icon">📚</div>
+            <div class="action-title">View Club</div>
+            <div class="action-sub">Your book clubs</div>
+        </a>
+    </div>
+</div>
+{% endblock %}

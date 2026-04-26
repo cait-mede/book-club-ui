@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <a href="{{ url_for('my_groups') }}" class="back-btn">← Back to My Groups</a>
+
+    <div class="form-container">
+        {% if wrong_account %}
+            <h2>Wrong Account</h2>
+            <p style="margin-bottom: 15px;">This request can only be approved by <strong>{{ creator_email }}</strong>, but you are logged in with a different account.</p>
+            <p style="margin-bottom: 25px;">Please log in with the correct account to review this request.</p>
+            <a href="{{ url_for('logout') }}" class="btn-full" style="display:block; text-align:center; padding:10px; text-decoration:none; background-color:#4169e1; color:white;">Log out and switch accounts</a>
+        {% else %}
+            <h2>Join Request</h2>
+            <p style="margin-bottom: 20px;">
+                <strong>{{ requester.name }}</strong> ({{ requester.email }}) would like to join your book club
+                <strong>{{ group.name }}</strong>.
+            </p>
+            <p style="margin-bottom: 25px;">Would you like to accept or decline their request?</p>
+            <form method="POST">
+                <div class="form-buttons">
+                    <button type="submit" name="action" value="accept" class="btn-full">Accept</button>
+                    <button type="submit" name="action" value="decline" class="btn-cancel">Decline</button>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

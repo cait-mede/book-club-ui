@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <a href="{{ url_for('dashboard') }}" class="back-btn">← Back to Dashboard</a>
+
+    <h2>Search Books</h2>
+
+    <form action="{{ url_for('search_books') }}" method="GET" class="search-form">
+        <input type="text" name="q" placeholder="Search by title, author, or keyword..." value="{{ query }}">
+        <button type="submit" class="btn-search">Search</button>
+    </form>
+
+    {% if error %}
+        <p class="error-msg">{{ error }}</p>
+    {% endif %}
+
+    {% if auto and not error %}
+        {% if preferences %}
+            <p class="auto-label">📖 Showing books based on your preferences: <strong>{{ preferences }}</strong></p>
+        {% else %}
+            <p class="auto-label">📖 Showing popular books. <a href="{{ url_for('signup') }}">Update your preferences</a> to get personalized results!</p>
+        {% endif %}
+    {% endif %}
+
+    {% if query and not books and not error %}
+        <p class="no-results">No books found for "{{ query }}".</p>
+    {% endif %}
+
+    <div class="book-grid">
+        {% for book in books %}
+        <div class="book-card">
+            {% if book.cover_i %}
+                <img src="https://covers.openlibrary.org/b/id/{{ book.cover_i }}-M.jpg" alt="{{ book.title }}">
+            {% else %}
+                <div class="no-cover">No Cover</div>
+            {% endif %}
+            <div class="book-info">
+                <div class="book-title">{{ book.title }}</div>
+                <div class="book-author">
+                    {% if book.author_name %}
+                        {{ book.author_name[0] }}
+                    {% else %}
+                        Unknown Author
+                    {% endif %}
+                </div>
+                {% if book.first_publish_year %}
+                    <div class="book-year">{{ book.first_publish_year }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

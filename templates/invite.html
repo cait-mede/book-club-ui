@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <a href="{{ url_for('my_groups') }}" class="back-btn">← Back to My Groups</a>
+
+    <div class="form-container">
+        <h2>Invite to {{ group.name }}</h2>
+
+        {% if sent %}
+            <p class="success-msg">Invite sent successfully!</p>
+        {% endif %}
+
+        <form action="{{ url_for('invite', group_id=group.id) }}" method="POST">
+            <div class="form-group">
+                <label for="invite_email">Friend's Email Address</label>
+                <input type="email" id="invite_email" name="invite_email" placeholder="Enter their email" required>
+            </div>
+            <button type="submit" class="btn-full">✉️ Send Invite</button>
+        </form>
+
+        <p class="form-footer">
+            <a href="{{ url_for('my_groups') }}">Back to My Groups</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

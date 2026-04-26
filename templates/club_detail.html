@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <a href="{{ url_for('my_groups') }}" class="back-btn">← Back to My Clubs</a>
+
+    <div class="club-info-card">
+        <div class="club-info-header">
+            <h2>{{ group.name }}</h2>
+            {% if is_creator %}
+                <a href="{{ url_for('invite', group_id=group.id) }}" class="btn-join">✉️ Invite</a>
+            {% endif %}
+        </div>
+        <p class="club-description">{{ group.description if group.description else 'No description provided.' }}</p>
+        <p class="club-current-line"><strong>Current Reading:</strong> {{ group.current_book if group.current_book else 'Nothing selected yet.' }}</p>
+    </div>
+
+    <div class="club-lower-grid">
+
+        <div class="club-detail-card">
+            <h3>Members ({{ members | length }})</h3>
+            {% if members %}
+                <ul class="member-list">
+                    {% for member in members %}
+                    <li>
+                        {{ member.name }}
+                        {% if member.id == group.creator_id %}<span class="creator-badge">Admin</span>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color:#888888;">No members yet.</p>
+            {% endif %}
+        </div>
+
+        <div class="club-detail-card">
+            <h3>Book List</h3>
+            <p><strong>Current Reading:</strong> {{ group.current_book if group.current_book else '—' }}</p>
+            <p><strong>Up Next:</strong> {{ group.up_next if group.up_next else '—' }}</p>
+            {% if group.completed_books %}
+                <p><strong>Completed:</strong></p>
+                <ul class="member-list">
+                    {% for book in group.completed_books.splitlines() %}
+                        {% if book.strip() %}
+                            <li>{{ book.strip() }}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p><strong>Completed:</strong> —</p>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

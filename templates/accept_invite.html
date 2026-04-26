@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <div class="form-container">
+        {% if invalid %}
+            <h2>Invalid Invite</h2>
+            <p style="margin-bottom: 20px;">This invite link has already been used or does not exist.</p>
+            <a href="{{ url_for('dashboard') }}" class="btn-full" style="display:block; text-align:center; padding:10px; text-decoration:none; background-color:#4169e1; color:white;">Go to Dashboard</a>
+        {% elif wrong_account %}
+            <h2>Wrong Account</h2>
+            <p style="margin-bottom: 15px;">This invite was sent to <strong>{{ invite_email }}</strong>, but you are logged in with a different account.</p>
+            <p style="margin-bottom: 25px;">Please log in with the correct account to accept this invite.</p>
+            <a href="{{ url_for('logout') }}" class="btn-full" style="display:block; text-align:center; padding:10px; text-decoration:none; background-color:#4169e1; color:white;">Log out and switch accounts</a>
+        {% else %}
+            <h2>You're Invited!</h2>
+            <p style="margin-bottom: 20px;">
+                You have been invited to join the book club <strong>{{ group.name }}</strong>.
+            </p>
+            <p style="margin-bottom: 25px;">Would you like to accept?</p>
+            <form method="POST">
+                <div class="form-buttons">
+                    <button type="submit" name="action" value="accept" class="btn-full">Accept & Join</button>
+                    <button type="submit" name="action" value="decline" class="btn-cancel">Decline</button>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

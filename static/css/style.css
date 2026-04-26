@@ -1,0 +1,636 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: black;
+    margin: 0;
+    padding: 0;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #4169e1;
+    padding: 10px 20px;
+    overflow: hidden;
+}
+
+.nav-logo {
+    color: white;
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: bold;
+    float: left;
+}
+
+.nav-links {
+    float: right;
+    margin-top: 2px;
+}
+
+.nav-links a {
+    color: white;
+    text-decoration: none;
+    margin-left: 15px;
+    font-size: 15px;
+}
+
+.nav-links a:hover {
+    text-decoration: underline;
+}
+
+.nav-greeting {
+    color: white;
+    margin-right: 10px;
+    font-size: 15px;
+}
+
+/* Hero Section */
+.hero {
+    background-color: #4169e1;
+    color: white;
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.hero h1 {
+    font-size: 40px;
+    margin-bottom: 10px;
+}
+
+.hero p {
+    font-size: 18px;
+    margin-bottom: 25px;
+}
+
+/* Buttons */
+.btn {
+    background-color: white;
+    color: #4169e1;
+    padding: 10px 25px;
+    border: 2px solid white;
+    font-size: 16px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background-color: #dce3ff;
+}
+
+.btn-full {
+    width: 100%;
+    background-color: #4169e1;
+    color: white;
+    border: 2px solid #4169e1;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.btn-full:hover {
+    background-color: #2a4fbc;
+}
+
+/* Feature Cards */
+.features {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.feature-card {
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 20px;
+    width: 250px;
+    display: inline-block;
+    margin: 10px;
+    vertical-align: top;
+}
+
+.feature-card img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    margin-bottom: 10px;
+}
+
+.feature-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.feature-card h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: #4169e1;
+}
+
+.feature-card p {
+    font-size: 14px;
+    color: #555555;
+}
+
+/* Form */
+.form-container {
+    width: 380px;
+    margin: 50px auto;
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 30px;
+}
+
+.form-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #4169e1;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #aaaaaa;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    height: 80px;
+}
+
+.form-footer {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+.form-footer a {
+    color: #4169e1;
+}
+
+.error-msg {
+    background-color: #ffe0e0;
+    color: red;
+    border: 1px solid red;
+    padding: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Dashboard */
+.dashboard {
+    padding: 30px;
+}
+
+.dashboard h2 {
+    font-size: 28px;
+    margin-bottom: 20px;
+}
+
+.getting-started {
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 20px 30px;
+    margin-bottom: 30px;
+    display: block;
+}
+
+.getting-started h3 {
+    margin-bottom: 10px;
+    color: #4169e1;
+}
+
+.getting-started ol {
+    padding-left: 20px;
+    font-size: 15px;
+    line-height: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 40px;
+    list-style-position: inside;
+}
+
+.action-buttons {
+    margin-top: 10px;
+}
+
+.action-btn {
+    display: inline-block;
+    width: calc(50% - 20px);
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 40px 15px;
+    text-align: center;
+    text-decoration: none;
+    color: black;
+    margin: 8px;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+.action-btn:hover {
+    border-color: #4169e1;
+    background-color: #f0f4ff;
+}
+
+.action-icon {
+    font-size: 50px;
+    margin-bottom: 12px;
+}
+
+.action-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    color: #4169e1;
+}
+
+.action-sub {
+    font-size: 13px;
+    color: #666666;
+}
+
+/* Page Content */
+.page-content {
+    padding: 25px 30px;
+}
+
+.page-content h2 {
+    font-size: 26px;
+    margin-bottom: 20px;
+}
+
+/* Back Button */
+.back-btn {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #4169e1;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.back-btn:hover {
+    text-decoration: underline;
+}
+
+/* Dropdowns */
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #aaaaaa;
+    font-size: 14px;
+    background-color: white;
+}
+
+/* Form Buttons Row */
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.form-buttons .btn-full {
+    flex: 1;
+    margin-top: 0;
+}
+
+.btn-cancel {
+    flex: 1;
+    display: inline-block;
+    text-align: center;
+    padding: 10px;
+    border: 2px solid #aaaaaa;
+    background-color: white;
+    color: #333;
+    font-size: 16px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-cancel:hover {
+    background-color: #eeeeee;
+}
+
+/* Search Form */
+.search-form {
+    margin-bottom: 20px;
+}
+
+.search-form input {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #aaaaaa;
+    width: 280px;
+}
+
+.btn-search {
+    padding: 8px 16px;
+    font-size: 14px;
+    background-color: #4169e1;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.btn-search:hover {
+    background-color: #2a4fbc;
+}
+
+/* Group List */
+.group-list {
+    border: 2px solid #cccccc;
+    background-color: white;
+    max-width: 700px;
+}
+
+.group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #dddddd;
+}
+
+.group-item:last-child {
+    border-bottom: none;
+}
+
+.group-info h3 {
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.group-info p {
+    font-size: 13px;
+    color: #555555;
+    margin-bottom: 3px;
+}
+
+.btn-join {
+    background-color: #4169e1;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-join:hover {
+    background-color: #2a4fbc;
+}
+
+.already-member {
+    font-size: 13px;
+    color: green;
+}
+
+.request-pending {
+    font-size: 13px;
+    color: #cc8800;
+}
+
+.pending-section {
+    margin-bottom: 30px;
+}
+
+.pending-section h3 {
+    margin-bottom: 10px;
+    color: #cc8800;
+}
+
+.no-results {
+    padding: 20px;
+    color: #666666;
+}
+
+.member-count {
+    font-size: 13px;
+    color: #888888;
+    margin-bottom: 5px;
+}
+
+.currently-reading {
+    font-size: 13px;
+    color: #4169e1;
+    margin-top: 6px;
+}
+
+.club-link {
+    color: #4169e1;
+    text-decoration: none;
+}
+
+.club-link:hover {
+    text-decoration: underline;
+}
+
+/* Club Detail Page */
+.club-info-card {
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 20px 25px;
+    margin-bottom: 20px;
+}
+
+.club-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.club-info-header h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.club-description {
+    font-size: 14px;
+    color: #444444;
+    margin-bottom: 10px;
+}
+
+.club-current-line {
+    font-size: 14px;
+    color: #444444;
+    margin: 0;
+}
+
+.club-lower-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.club-detail-card {
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 20px;
+}
+
+.club-detail-card h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #4169e1;
+    border-bottom: 1px solid #eeeeee;
+    padding-bottom: 8px;
+}
+
+.club-detail-card p {
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #444444;
+}
+
+.current-book-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333333;
+}
+
+.member-list {
+    list-style: none;
+    padding: 0;
+}
+
+.member-list li {
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid #eeeeee;
+    color: #444444;
+}
+
+.member-list li:last-child {
+    border-bottom: none;
+}
+
+.creator-badge {
+    background-color: #4169e1;
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    margin-left: 8px;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+
+.modal-box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border: 2px solid #cccccc;
+    padding: 30px;
+    width: 360px;
+    z-index: 101;
+}
+
+.modal-box p {
+    font-size: 15px;
+    margin-bottom: 20px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-buttons .btn-full {
+    margin-top: 0;
+}
+
+.success-msg {
+    background-color: #e0ffe0;
+    color: green;
+    border: 1px solid green;
+    padding: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Book Search */
+.auto-label {
+    background-color: white;
+    border: 1px solid #cccccc;
+    padding: 10px 15px;
+    font-size: 14px;
+    margin-bottom: 10px;
+    display: block;
+}
+
+
+.book-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.book-card {
+    background-color: white;
+    border: 2px solid #cccccc;
+    width: 160px;
+    text-align: center;
+}
+
+.book-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.no-cover {
+    width: 100%;
+    height: 200px;
+    background-color: #eeeeee;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #999999;
+}
+
+.book-info {
+    padding: 10px;
+}
+
+.book-title {
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.book-author {
+    font-size: 12px;
+    color: #555555;
+    margin-bottom: 3px;
+}
+
+.book-year {
+    font-size: 12px;
+    color: #999999;
+}

@@ -584,6 +584,15 @@ body {
     margin-top: 0;
 }
 
+.invite-notice {
+    background-color: #f0f4ff;
+    border: 1px solid #c0ccf5;
+    color: #444444;
+    font-size: 13px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
 .success-msg {
     background-color: #e0ffe0;
     color: green;

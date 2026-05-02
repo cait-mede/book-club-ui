@@ -2,8 +2,12 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 import requests
 import secrets
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'dev-secret-key'
@@ -13,9 +17,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bookclub.db'
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'yourbookclubapp@gmail.com'
-app.config['MAIL_PASSWORD'] = 'djxj aklf anom yxzd'
-app.config['MAIL_DEFAULT_SENDER'] = 'yourbookclubapp@gmail.com'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 # ------------------------
 
 db = SQLAlchemy(app)

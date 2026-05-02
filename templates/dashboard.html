@@ -4,15 +4,31 @@
 <div class="dashboard">
     <h2>Dashboard</h2>
 
-    <div class="getting-started">
-        <h3>Getting Started</h3>
-        <ol>
-            <li>Create or Join a Club</li>
-            <li>Browse Books</li>
-            <li>Vote on your next book</li>
-            <li>Read</li>
-            <li>Review</li>
-        </ol>
+    <button class="getting-started-btn" onclick="document.getElementById('tips-modal').style.display='block'">
+        💡 Getting Started — Click for tips!
+    </button>
+
+    <div class="modal-overlay" id="tips-modal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal-box tips-modal-box">
+            <h3>Getting Started</h3>
+
+            <div class="tips-section">
+                <h4>👥 Create a Book Club</h4>
+                <p>Click <strong>Create Group</strong> on the dashboard. Give your club a name, description, genre, and reading pace. You can also set your current book right away. Once created, you'll be taken to your club page where you can invite friends.</p>
+            </div>
+
+            <div class="tips-section">
+                <h4>🚪 Join an Existing Club</h4>
+                <p>Click <strong>Join Club</strong> to browse all clubs. Search by name to find one you like, then send a join request. The club creator will get an email and can approve or decline your request. You'll be notified by email when they respond.</p>
+            </div>
+
+            <div class="tips-section">
+                <h4>🔍 Search for Books</h4>
+                <p>Click <strong>Search Books</strong> to explore titles using the Open Library database. If you've set reading preferences in your profile, we'll show personalized suggestions automatically. Search by title, author, or keyword to find your next great read.</p>
+            </div>
+
+            <button class="btn-full" onclick="document.getElementById('tips-modal').style.display='none'">Got it!</button>
+        </div>
     </div>
 
     <div class="action-buttons">

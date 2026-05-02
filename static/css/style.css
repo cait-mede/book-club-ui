@@ -198,27 +198,50 @@ body {
     margin-bottom: 20px;
 }
 
-.getting-started {
+.getting-started-btn {
     background-color: white;
-    border: 2px solid #cccccc;
-    padding: 20px 30px;
-    margin-bottom: 30px;
-    display: block;
-}
-
-.getting-started h3 {
-    margin-bottom: 10px;
+    border: 2px solid #4169e1;
     color: #4169e1;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 25px;
+    display: inline-block;
 }
 
-.getting-started ol {
-    padding-left: 20px;
+.getting-started-btn:hover {
+    background-color: #f0f4ff;
+}
+
+.tips-modal-box {
+    width: 480px;
+    max-width: 90vw;
+}
+
+.tips-modal-box h3 {
+    font-size: 18px;
+    color: #4169e1;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #eeeeee;
+    padding-bottom: 10px;
+}
+
+.tips-section {
+    margin-bottom: 18px;
+}
+
+.tips-section h4 {
     font-size: 15px;
-    line-height: 2;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 40px;
-    list-style-position: inside;
+    margin-bottom: 6px;
+    color: #333333;
+}
+
+.tips-section p {
+    font-size: 14px;
+    color: #555555;
+    line-height: 1.6;
+    margin: 0;
 }
 
 .action-buttons {

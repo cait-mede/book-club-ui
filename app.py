@@ -34,7 +34,7 @@ class User(db.Model):
     preferences = db.Column(db.String(500))
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -75,6 +75,59 @@ with app.app_context():
     db.create_all()
 
 
+def get_personality_from_ai(preferences):
+    """Call AI service to generate book personality and image."""
+    try:
+        print(f"[DEBUG] Calling AI service with preferences: {preferences}")
+        
+        # Request 1: Get personality text
+        text_response = requests.post(
+            'http://localhost:3000/generate',
+            json={
+                "prompt": f"Give me a one or two word book personality for someone who likes: {preferences}. Just the personality phrase, nothing else."
+            },
+            timeout=10
+        )
+        print(f"[DEBUG] Text response status: {text_response.status_code}")
+        print(f"[DEBUG] Text response body: {text_response.text}")
+        
+        if text_response.status_code != 200:
+            print(f"[ERROR] Text request failed")
+            return "I'm stumped", None
+            
+        text_data = text_response.json()
+        personality = text_data.get('response') or text_data.get('personality') or 'Curious Reader'
+        print(f"[DEBUG] Extracted personality: {personality}")
+        
+        # Request 2: Get image for the personality
+        image_response = requests.post(
+            'http://localhost:3000/generate',
+            json={
+                "prompt": f"Create an artistic, whimsical illustration representing this book personality: '{personality}'. Style: watercolor, literary art, elegant. Keep it simple and colorful."
+            },
+            timeout=30
+        )
+        print(f"[DEBUG] Image response status: {image_response.status_code}")
+        print(f"[DEBUG] Image response body: {image_response.text[:200]}...") 
+        
+        image_url = None
+        if image_response.status_code == 200:
+            image_data = image_response.json()
+            image_url = image_data.get('response') or image_data.get('image')
+            print(f"[DEBUG] Extracted image URL: {image_url}")
+        else:
+            print(f"[WARNING] Image request failed, will return personality only")
+        
+        return personality.strip(), image_url
+        
+    except Exception as e:
+        print(f"[ERROR] Exception calling AI service: {e}")
+        import traceback
+        traceback.print_exc()
+    print("[DEBUG] Returning fallback values")
+    return "I'm stumped", None
+
+
 def send_email(to, subject, body):
     try:
         msg = Message(subject=subject, recipients=[to], body=body)
@@ -92,7 +145,8 @@ def index():
 def dashboard():
     if not session.get('user_id'):
         return redirect(url_for('login'))
-    return render_template('dashboard.html')
+    user = User.query.get(session['user_id'])
+    return render_template('dashboard.html', user=user)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -350,6 +404,28 @@ def club_detail(group_id):
                            is_member=is_member, is_creator=is_creator, creator=creator)
 
 
+@app.route('/profile')
+def profile():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    user = User.query.get(session['user_id'])
+    if not user:
+        return redirect(url_for('login'))
+    return render_template('profile.html', user=user)
+
+
+@app.route('/generate-personality', methods=['POST'])
+def generate_personality():
+    if not session.get('user_id'):
+        return {'error': 'Not logged in'}, 401
+    user = User.query.get(session['user_id'])
+    if not user:
+        return {'error': 'User not found'}, 404
+    # Generate on-the-fly, don't save
+    personality, image = get_personality_from_ai(user.preferences or 'mystery, fiction')
+    return {'personality': personality, 'image': image}, 200
+
+
 @app.route('/search-books')
 def search_books():
     if not session.get('user_id'):
@@ -380,4 +456,4 @@ def search_books():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=5000)

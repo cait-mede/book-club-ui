@@ -3,3 +3,4 @@ flask-sqlalchemy
 flask-mail
 requests
 python-dotenv
+Werkzeug<3.0

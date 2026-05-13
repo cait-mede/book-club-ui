@@ -57,4 +57,259 @@
         </a>
     </div>
 </div>
+
+<!-- Personality Popup Modal -->
+<div class="personality-modal" id="personality-modal" style="display:none;">
+    <div class="personality-modal-content">
+        <span class="personality-modal-close" onclick="document.getElementById('personality-modal').style.display='none'">&times;</span>
+        <div class="personality-modal-header">✨ Your Book Personality</div>
+        <div class="personality-modal-body">
+            <div id="personality-image-container" style="margin-bottom: 15px;">
+                <img id="personality-image" src="" alt="Personality" style="width: 100%; border-radius: 8px; display: none;">
+            </div>
+            <div class="personality-result" id="personality-result">Curious Reader</div>
+            <p class="personality-tagline">Your unique reading style!</p>
+        </div>
+        <button class="personality-modal-btn" onclick="document.getElementById('personality-modal').style.display='none'">Got it!</button>
+    </div>
+</div>
+
+<!-- Floating Personality Button -->
+<button class="floating-personality-btn" onclick="generatePersonality()" title="Generate Your Book Personality">
+    📚 Generate Your Book Personality
+</button>
+
+<style>
+    .floating-personality-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 16px 24px;
+        border-radius: 50px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+        z-index: 100;
+        white-space: nowrap;
+    }
+    
+    .floating-personality-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+    
+    .floating-personality-btn:active {
+        transform: translateY(-1px);
+    }
+    
+    .floating-personality-btn.loading {
+        opacity: 0.8;
+        cursor: not-allowed;
+    }
+    
+    .personality-modal {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .personality-modal-content {
+        background: white;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 400px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        position: relative;
+        animation: slideUp 0.3s ease;
+    }
+    
+    .personality-modal-close {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+        font-size: 28px;
+        font-weight: bold;
+        color: #999;
+        cursor: pointer;
+        transition: color 0.3s;
+    }
+    
+    .personality-modal-close:hover {
+        color: #333;
+    }
+    
+    .personality-modal-header {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .personality-modal-body {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    
+    .personality-result {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 36px;
+        font-weight: bold;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        letter-spacing: 1px;
+        animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    .personality-tagline {
+        color: #666;
+        font-size: 14px;
+        margin: 0;
+    }
+    
+    .personality-modal-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 14px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .personality-modal-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes popIn {
+        0% {
+            transform: scale(0.8);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.05);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    @media (max-width: 600px) {
+        .floating-personality-btn {
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            font-size: 12px;
+        }
+        
+        .personality-modal-content {
+            margin: 20px;
+            padding: 30px;
+        }
+        
+        .personality-result {
+            font-size: 28px;
+            padding: 20px;
+        }
+    }
+</style>
+
+<script>
+    function generatePersonality() {
+        const btn = document.querySelector('.floating-personality-btn');
+        const modal = document.getElementById('personality-modal');
+        const resultDiv = document.getElementById('personality-result');
+        const imageContainer = document.getElementById('personality-image-container');
+        const imageElement = document.getElementById('personality-image');
+        
+        btn.classList.add('loading');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating...';
+        
+        fetch('{{ url_for("generate_personality") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.personality) {
+                resultDiv.textContent = data.personality;
+                
+                // Display image if available
+                if (data.image) {
+                    imageElement.src = data.image;
+                    imageElement.style.display = 'block';
+                } else {
+                    imageElement.style.display = 'none';
+                }
+                
+                modal.style.display = 'flex';
+            } else {
+                resultDiv.textContent = 'Curious Reader';
+                imageElement.style.display = 'none';
+                modal.style.display = 'flex';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            resultDiv.textContent = 'Curious Reader';
+            imageElement.style.display = 'none';
+            modal.style.display = 'flex';
+        })
+        .finally(() => {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            btn.textContent = '📚 Generate Your Book Personality';
+        });
+    }
+    
+    // Close modal when clicking outside
+    document.getElementById('personality-modal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            this.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="profile-card">
+        <h2>{{ user.name }}'s Profile</h2>
+        
+        <div class="profile-section">
+            <h3>Email</h3>
+            <p>{{ user.email }}</p>
+        </div>
+        
+        <div class="profile-section">
+            <h3>📖 Reading Preferences</h3>
+            <p>{{ user.preferences if user.preferences else 'Not specified' }}</p>
+        </div>
+        
+        <div class="profile-actions">
+            <a href="{{ url_for('dashboard') }}" class="btn-back">← Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .profile-container {
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+    
+    .profile-card {
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        max-width: 500px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-card h2 {
+        color: #333;
+        margin-bottom: 30px;
+        font-size: 28px;
+    }
+    
+    .profile-section {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .profile-section:last-of-type {
+        border-bottom: none;
+    }
+    
+    .profile-section h3 {
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        letter-spacing: 0.5px;
+    }
+    
+    .profile-section p {
+        color: #333;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    
+    .personality-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        padding: 25px;
+        margin: 20px 0;
+        border: none;
+    }
+    
+    .personality-section h3 {
+        color: white;
+    }
+    
+    .personality-badge {
+        background: white;
+        color: #667eea;
+        font-size: 24px;
+        font-weight: bold;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        margin: 15px 0;
+        letter-spacing: 1px;
+    }
+    
+    .personality-note {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+        text-align: center;
+        margin: 10px 0 0 0;
+    }
+    
+    .profile-actions {
+        margin-top: 30px;
+        text-align: center;
+    }
+    
+    .btn-back {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: background 0.3s;
+    }
+    
+    .btn-back:hover {
+        background: #764ba2;
+    }
+</style>
+{% endblock %}

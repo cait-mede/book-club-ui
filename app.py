@@ -103,22 +103,24 @@ def get_personality_from_ai(preferences):
         image_response = requests.post(
             'http://localhost:3000/generate',
             json={
-                "prompt": f"Create an artistic, whimsical illustration representing this book personality: '{personality}'. Style: watercolor, literary art, elegant. Keep it simple and colorful."
+                "prompt": f"Create an simple picture representing this book personality: '{personality}'. Style: watercolor, literary art, elegant."
             },
-            timeout=30
+            timeout=60
         )
         print(f"[DEBUG] Image response status: {image_response.status_code}")
         print(f"[DEBUG] Image response body: {image_response.text[:200]}...") 
         
-        image_url = None
+        image_src = None
         if image_response.status_code == 200:
             image_data = image_response.json()
-            image_url = image_data.get('response') or image_data.get('image')
-            print(f"[DEBUG] Extracted image URL: {image_url}")
+            b64 = image_data.get('response') or image_data.get('image')
+            if b64:
+                image_src = f"data:image/png;base64,{b64}"
+            print(f"[DEBUG] Image data received, length: {len(b64) if b64 else 0}")
         else:
             print(f"[WARNING] Image request failed, will return personality only")
-        
-        return personality.strip(), image_url
+
+        return personality.strip(), image_src
         
     except Exception as e:
         print(f"[ERROR] Exception calling AI service: {e}")

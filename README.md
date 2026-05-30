@@ -15,7 +15,6 @@ User interface for book club application
 ## TODO:
 
 Microservices:
-- rating/review service
 - voting/polling service
-- book personality service? AI
 - scheduling service? 
+- invite service

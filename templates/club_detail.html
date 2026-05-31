@@ -13,6 +13,29 @@
         </div>
         <p class="club-description">{{ group.description if group.description else 'No description provided.' }}</p>
         <p class="club-current-line"><strong>Current Reading:</strong> {{ group.current_book if group.current_book else 'Nothing selected yet.' }}</p>
+        {% set ns = namespace(meeting_shown=false) %}
+        {% for schedule in schedules %}
+            {% if schedule.confirmed_slot is not none and not ns.meeting_shown %}
+            {% set matched_meeting = meetings | selectattr('slot_text', 'equalto', schedule.slots[schedule.confirmed_slot].text) | first | default(None) %}
+            <p class="club-current-line" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span>
+                    <strong>Next Meeting:</strong>
+                    {{ schedule.slots[schedule.confirmed_slot].text }}
+                    {% if schedule.book %} — discussing <em>{{ schedule.book }}</em>{% endif %}
+                </span>
+                {% if is_creator %}
+                <form method="POST" action="{{ url_for('cancel_meeting', group_id=group.id, schedule_id=schedule.schedule_id) }}" style="margin:0;">
+                    <input type="hidden" name="meeting_id" value="{{ matched_meeting.meeting_id if matched_meeting else '' }}">
+                    <button type="submit" class="btn-small" style="background:#c62828; font-size:11px; padding:3px 10px;"
+                        onclick="return confirm('Cancel this meeting and notify all members?')">
+                        Cancel meeting
+                    </button>
+                </form>
+                {% endif %}
+            </p>
+            {% set ns.meeting_shown = true %}
+            {% endif %}
+        {% endfor %}
     </div>
 
     <div class="club-lower-grid">
@@ -36,6 +59,11 @@
         <div class="club-detail-card">
             <h3>Book List</h3>
             <p><strong>Current Reading:</strong> {{ group.current_book if group.current_book else '—' }}</p>
+            {% if is_creator and group.current_book %}
+            <form method="POST" action="{{ url_for('complete_book', group_id=group.id) }}" style="margin: 4px 0 10px;">
+                <button type="submit" class="btn-small">✅ Mark "{{ group.current_book }}" as complete</button>
+            </form>
+            {% endif %}
             <p><strong>Up Next:</strong> {{ group.up_next if group.up_next else '—' }}</p>
             {% if group.completed_books %}
                 <p><strong>Completed:</strong></p>
@@ -52,5 +80,421 @@
         </div>
 
     </div>
+
+    <div class="club-detail-card" style="margin-top: 20px;">
+        <h3>Book Polls</h3>
+
+        {% for poll in polls %}
+        <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 8px;">
+                <p style="font-weight: bold; margin: 0;">{{ poll.question }}</p>
+                {% if poll.closed %}
+                    <span style="background:#e8f5e9; color:#2e7d32; font-size:12px; padding:2px 8px; border-radius:10px;">Closed</span>
+                {% else %}
+                    <span style="background:#e3f2fd; color:#1565c0; font-size:12px; padding:2px 8px; border-radius:10px;">Open</span>
+                {% endif %}
+            </div>
+
+            {% if poll.closed %}
+                {% for option in poll.options %}
+                <div style="margin-bottom: 6px; font-size: 13px;">
+                    {{ option.text }}
+                    <span style="color: #888;">({{ option.votes }} vote{{ 's' if option.votes != 1 }})</span>
+                    {% if poll.voters.get(user_id) == option.index %}<em style="color:#4169e1;"> ← your vote</em>{% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <form method="POST" action="{{ url_for('cast_vote', group_id=group.id, poll_id=poll.poll_id) }}">
+                    {% for option in poll.options %}
+                    <label style="display: block; margin-bottom: 6px;">
+                        <input type="radio" name="option_index" value="{{ option.index }}"
+                            {% if poll.voters.get(user_id) == option.index %}checked{% endif %}
+                            {% if not is_member %}disabled{% endif %}>
+                        {{ option.text }}
+                        <span style="color: #888; font-size: 13px;">({{ option.votes }} vote{{ 's' if option.votes != 1 }})</span>
+                    </label>
+                    {% endfor %}
+                    {% if is_member %}
+                    <button type="submit" class="btn-small" style="margin-top: 8px;">
+                        {% if poll.voters.get(user_id) is not none %}Update vote{% else %}Vote{% endif %}
+                    </button>
+                    {% endif %}
+                </form>
+                {% if is_creator %}
+                <form method="POST" action="{{ url_for('close_poll', group_id=group.id, poll_id=poll.poll_id) }}" style="margin-top: 8px;">
+                    <button type="submit" class="btn-small" style="background:#888;">Close poll</button>
+                </form>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% else %}
+        <p style="color: #888;">No polls yet.</p>
+        {% endfor %}
+
+        {% if is_creator %}
+        <details style="margin-top: 12px;">
+            <summary style="cursor: pointer; color: #4169e1; font-weight: bold;">+ Create a poll — "What should we read next?"</summary>
+            <form method="POST" action="{{ url_for('create_poll', group_id=group.id) }}" style="margin-top: 12px;" onsubmit="return validatePoll()">
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <input type="text" id="book-search-input" placeholder="Search for a book to add..."
+                        style="flex: 1; padding: 6px;" onkeydown="if(event.key==='Enter'){event.preventDefault();searchBooks();}">
+                    <button type="button" class="btn-small" onclick="searchBooks()">Search</button>
+                </div>
+                <div id="book-search-results" style="margin-bottom: 10px;"></div>
+                <div id="selected-books" style="margin-bottom: 10px;"></div>
+                <textarea name="options" id="poll-options-hidden" style="display:none;"></textarea>
+                <button type="submit" class="btn-small">Create Poll</button>
+                <span id="poll-error" style="color: red; font-size: 13px; margin-left: 8px;"></span>
+            </form>
+        </details>
+        {% endif %}
+    </div>
+
+    <div class="club-detail-card" style="margin-top: 20px;">
+        <h3>When to Meet</h3>
+
+        {% for schedule in schedules %}
+        <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+            {% if schedule.confirmed_slot is not none %}
+                <p style="margin:0 0 4px;">
+                    <span style="background:#e8f5e9; color:#2e7d32; font-size:12px; padding:2px 8px; border-radius:10px; margin-right:8px;">Confirmed</span>
+                    <strong>{{ schedule.slots[schedule.confirmed_slot].text }}</strong>
+                </p>
+                {% if schedule.book %}
+                <p style="font-size:13px; color:#555; margin:0 0 4px;">Discussing <em>{{ schedule.book }}</em></p>
+                {% endif %}
+                <p style="font-size:13px; color:#666; margin:0;">
+                    {{ schedule.availability | length }} / {{ members | length }} members responded
+                </p>
+            {% else %}
+                <p style="margin:0 0 10px;">
+                    <span style="background:#e3f2fd; color:#1565c0; font-size:12px; padding:2px 8px; border-radius:10px; margin-right:8px;">Open</span>
+                    Click the times that work for you, then save.
+                </p>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                    {% for slot in schedule.slots %}
+                    {% set is_available = slot.index in (schedule.availability.get(user_id) or []) %}
+                    <label style="cursor:pointer;">
+                        <input type="checkbox" name="available_slots" value="{{ slot.index }}"
+                            form="avail-form-{{ schedule.schedule_id }}"
+                            {% if is_available %}checked{% endif %}
+                            {% if not is_member %}disabled{% endif %}
+                            style="display:none;" class="slot-checkbox">
+                        <div class="slot-card {% if is_available %}slot-available{% endif %}"
+                             style="border:2px solid {% if is_available %}#4169e1{% else %}#ddd{% endif %};
+                                    border-radius:8px; padding:10px 14px; font-size:13px; text-align:center;
+                                    background:{% if is_available %}#e8eeff{% else %}#fafafa{% endif %};">
+                            <div style="font-weight:bold;">{{ slot.text }}</div>
+                            <div style="color:#888; font-size:11px; margin-top:3px;">
+                                {{ slot.available_count }} / {{ members | length }} available
+                            </div>
+                        </div>
+                    </label>
+                    {% if is_creator %}
+                    <form method="POST" action="{{ url_for('confirm_slot', group_id=group.id, schedule_id=schedule.schedule_id) }}"
+                          style="display:inline;">
+                        <input type="hidden" name="slot_index" value="{{ slot.index }}">
+                        <input type="hidden" name="slot_text" value="{{ slot.text }}">
+                        <button type="submit" class="btn-small"
+                            style="height:100%; border-radius:8px; padding:10px 10px; font-size:12px; background:#2e7d32;">
+                            ✓ Confirm
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <form id="avail-form-{{ schedule.schedule_id }}" method="POST"
+                      action="{{ url_for('submit_availability', group_id=group.id, schedule_id=schedule.schedule_id) }}">
+                    {% if is_member %}
+                    <button type="submit" class="btn-small">Save availability</button>
+                    {% endif %}
+                </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <p style="color:#888;">No schedules yet.</p>
+        {% endfor %}
+
+        {% if is_creator %}
+        <details style="margin-top:12px;">
+            <summary style="cursor:pointer; color:#4169e1; font-weight:bold;">+ Suggest times</summary>
+            <form method="POST" action="{{ url_for('create_schedule', group_id=group.id) }}"
+                  style="margin-top:12px;" onsubmit="return validateSchedule()">
+
+                <div style="display:flex; gap:10px; align-items:flex-start; margin-bottom:8px;">
+                    <div style="flex-shrink:0;">
+                        <div style="width:252px; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                            <div style="background:#4169e1; color:white; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                                <button type="button" onclick="changeMonth(-1)"
+                                    style="background:none;border:none;color:white;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;">&#8249;</button>
+                                <strong id="cal-title" style="font-size:13px;"></strong>
+                                <button type="button" onclick="changeMonth(1)"
+                                    style="background:none;border:none;color:white;font-size:18px;cursor:pointer;line-height:1;padding:0 4px;">&#8250;</button>
+                            </div>
+                            <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr);
+                                 text-align:center; font-size:12px; padding:6px 4px 8px;"></div>
+                        </div>
+                    </div>
+
+                    <div id="time-panel" style="display:none; border:1px solid #ddd; border-radius:8px;
+                         padding:12px; font-size:13px; min-width:130px;">
+                        <div id="time-panel-date" style="font-weight:bold; color:#333; margin-bottom:10px; font-size:12px;"></div>
+                        <label style="display:block; color:#888; font-size:11px; margin-bottom:4px;">Time</label>
+                        <select id="time-panel-select"
+                            style="width:100%; padding:5px 4px; border-radius:6px; border:1px solid #ddd; font-size:13px;"></select>
+                    </div>
+                </div>
+
+                <div id="selected-slots" style="margin:0 0 8px;"></div>
+
+                <textarea name="slots" id="slots-hidden" style="display:none;"></textarea>
+                <button type="submit" class="btn-small">Submit times</button>
+                <span id="schedule-error" style="color:red; font-size:13px; margin-left:8px;"></span>
+            </form>
+        </details>
+        {% endif %}
+    </div>
+
+    <script>
+        /* ── Poll book search ── */
+        const selectedBooks = [];
+
+        function searchBooks() {
+            const query = document.getElementById('book-search-input').value.trim();
+            if (!query) return;
+            const resultsDiv = document.getElementById('book-search-results');
+            resultsDiv.innerHTML = '<em style="color:#888;font-size:13px;">Searching...</em>';
+
+            fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=6`)
+                .then(r => r.json())
+                .then(data => {
+                    const books = data.docs || [];
+                    if (!books.length) {
+                        resultsDiv.innerHTML = '<em style="color:#888;font-size:13px;">No results found.</em>';
+                        return;
+                    }
+                    resultsDiv.innerHTML = books.map(b => {
+                        const title = b.title || 'Unknown Title';
+                        const author = b.author_name ? b.author_name[0] : '';
+                        const label = author ? `${title} — ${author}` : title;
+                        const coverSrc = b.cover_i
+                            ? `https://covers.openlibrary.org/b/id/${b.cover_i}-S.jpg` : '';
+                        const coverHtml = coverSrc
+                            ? `<img src="${coverSrc}" style="width:36px;height:50px;object-fit:cover;border-radius:3px;margin-right:10px;flex-shrink:0;">`
+                            : `<div style="width:36px;height:50px;background:#ddd;border-radius:3px;margin-right:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;">📖</div>`;
+                        return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #eee;">
+                            ${coverHtml}
+                            <span style="flex:1;font-size:13px;">${label}</span>
+                            <button type="button" class="btn-small add-book-btn" data-label="${label.replace(/"/g, '&quot;')}" style="margin-left:8px;">Add</button>
+                        </div>`;
+                    }).join('');
+                    resultsDiv.querySelectorAll('.add-book-btn').forEach(btn => {
+                        btn.addEventListener('click', () => addBook(btn.dataset.label));
+                    });
+                })
+                .catch(() => {
+                    resultsDiv.innerHTML = '<em style="color:red;font-size:13px;">Search failed. Try again.</em>';
+                });
+        }
+
+        function addBook(label) {
+            if (selectedBooks.includes(label)) return;
+            selectedBooks.push(label);
+            renderSelectedBooks();
+        }
+
+        function removeBook(index) {
+            selectedBooks.splice(index, 1);
+            renderSelectedBooks();
+        }
+
+        function renderSelectedBooks() {
+            const div = document.getElementById('selected-books');
+            const hidden = document.getElementById('poll-options-hidden');
+            if (!div) return;
+            if (!selectedBooks.length) { div.innerHTML = ''; hidden.value = ''; return; }
+            div.innerHTML = '<p style="font-size:13px;font-weight:bold;margin-bottom:4px;">Poll options:</p>'
+                + selectedBooks.map((b, i) =>
+                    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:13px;">
+                        <span>📖 ${b}</span>
+                        <button type="button" data-index="${i}" class="remove-book-btn"
+                            style="background:none;border:none;color:#999;cursor:pointer;font-size:16px;">✕</button>
+                    </div>`
+                ).join('');
+            div.querySelectorAll('.remove-book-btn').forEach(btn => {
+                btn.addEventListener('click', () => removeBook(Number(btn.dataset.index)));
+            });
+            hidden.value = selectedBooks.join('\n');
+        }
+
+        function validatePoll() {
+            if (selectedBooks.length < 2) {
+                document.getElementById('poll-error').textContent = 'Add at least 2 books.';
+                return false;
+            }
+            return true;
+        }
+
+        /* ── Slot card toggle ── */
+        document.querySelectorAll('.slot-checkbox').forEach(cb => {
+            const card = cb.nextElementSibling;
+            cb.addEventListener('change', () => {
+                card.style.border = cb.checked ? '2px solid #4169e1' : '2px solid #ddd';
+                card.style.background = cb.checked ? '#e8eeff' : '#fafafa';
+            });
+        });
+
+        /* ── Calendar ── */
+        const TIMES = [];
+        for (let h = 6; h <= 22; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                const hDisplay = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                TIMES.push(`${hDisplay}:${m === 0 ? '00' : '30'} ${ampm}`);
+            }
+        }
+
+        const calState = {
+            year: new Date().getFullYear(),
+            month: new Date().getMonth(),
+            selected: {}
+        };
+
+        const MONTH_NAMES = ['January','February','March','April','May','June',
+                             'July','August','September','October','November','December'];
+        const DAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+        function renderCalendar() {
+            const { year, month, selected } = calState;
+            const title = document.getElementById('cal-title');
+            const grid = document.getElementById('cal-grid');
+            if (!title || !grid) return;
+
+            title.textContent = `${MONTH_NAMES[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+            let html = DAY_NAMES.map(d =>
+                `<div style="font-size:10px;color:#aaa;font-weight:bold;padding:2px 0 4px;">${d}</div>`
+            ).join('');
+
+            for (let i = 0; i < firstDay; i++) html += '<div></div>';
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isPast = key < todayKey;
+                const sel = !!selected[key];
+                const isToday = key === todayKey;
+                html += `<div style="padding:2px 0; cursor:${isPast ? 'default' : 'pointer'};"
+                              onclick="${isPast ? '' : `toggleDay('${key}')`}">
+                    <div style="
+                        width:28px; height:28px; line-height:28px; margin:0 auto;
+                        border-radius:50%; font-size:12px; box-sizing:border-box;
+                        background:${sel ? '#4169e1' : 'transparent'};
+                        color:${sel ? 'white' : isPast ? '#ccc' : 'black'};
+                        border:${isToday && !sel ? '1.5px solid #4169e1' : 'none'};
+                        font-weight:${sel || isToday ? 'bold' : 'normal'};
+                    ">${d}</div>
+                </div>`;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function changeMonth(dir) {
+            calState.month += dir;
+            if (calState.month > 11) { calState.month = 0; calState.year++; }
+            if (calState.month < 0)  { calState.month = 11; calState.year--; }
+            renderCalendar();
+        }
+
+        function toggleDay(key) {
+            if (calState.selected[key] === undefined) {
+                calState.selected[key] = '7:00 PM';
+                renderSelectedSlots();
+            }
+            calState.focused = key;
+            showTimePanel(key);
+            renderCalendar();
+        }
+
+        function showTimePanel(key) {
+            const panel = document.getElementById('time-panel');
+            const dateLabel = document.getElementById('time-panel-date');
+            const select = document.getElementById('time-panel-select');
+            const d = new Date(key + 'T12:00:00');
+            dateLabel.textContent = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+            select.innerHTML = TIMES.map(t =>
+                `<option value="${t}" ${t === calState.selected[key] ? 'selected' : ''}>${t}</option>`
+            ).join('');
+            select.onchange = () => {
+                calState.selected[key] = select.value;
+                syncSlotsHidden();
+                renderSelectedSlots();
+            };
+            panel.style.display = 'block';
+        }
+
+        function removeSlot(key) {
+            delete calState.selected[key];
+            if (calState.focused === key) {
+                calState.focused = null;
+                document.getElementById('time-panel').style.display = 'none';
+            }
+            renderCalendar();
+            renderSelectedSlots();
+        }
+
+        function renderSelectedSlots() {
+            const div = document.getElementById('selected-slots');
+            if (!div) return;
+            const entries = Object.entries(calState.selected).sort(([a],[b]) => a.localeCompare(b));
+            if (!entries.length) { div.innerHTML = ''; syncSlotsHidden(); return; }
+
+            div.innerHTML = entries.map(([key, time]) => {
+                const d = new Date(key + 'T12:00:00');
+                const label = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+                const isFocused = key === calState.focused;
+                return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px;
+                             padding:4px 6px; border-radius:6px;
+                             background:${isFocused ? '#e8eeff' : 'transparent'};">
+                    <span style="flex:1; color:#333;">📅 ${label} <span style="color:#4169e1;">${time}</span></span>
+                    <button type="button" data-key="${key}" class="remove-slot-btn"
+                        style="background:none;border:none;color:#bbb;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+                </div>`;
+            }).join('');
+
+            div.querySelectorAll('.remove-slot-btn').forEach(btn => {
+                btn.addEventListener('click', () => removeSlot(btn.dataset.key));
+            });
+            syncSlotsHidden();
+        }
+
+        function syncSlotsHidden() {
+            const hidden = document.getElementById('slots-hidden');
+            if (!hidden) return;
+            const entries = Object.entries(calState.selected).sort(([a],[b]) => a.localeCompare(b));
+            hidden.value = entries.map(([key, time]) => {
+                const d = new Date(key + 'T12:00:00');
+                const label = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+                return `${label} at ${time}`;
+            }).join('\n');
+        }
+
+        function validateSchedule() {
+            if (Object.keys(calState.selected).length === 0) {
+                document.getElementById('schedule-error').textContent = 'Select at least one date.';
+                return false;
+            }
+            return true;
+        }
+
+        renderCalendar();
+    </script>
+    </div>
+
 </div>
 {% endblock %}

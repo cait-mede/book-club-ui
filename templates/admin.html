@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <h2>🔧 Admin — Switch User</h2>
+    <p style="color:#666;">Select an account to view the app as that user.</p>
+
+    <div class="club-detail-card">
+        <ul class="member-list">
+            {% for user in users %}
+            <li style="display:flex; justify-content:space-between; align-items:center; padding: 8px 0;">
+                <span>
+                    <strong>{{ user.name }}</strong>
+                    <span style="color:#888; font-size:13px; margin-left:8px;">{{ user.email }}</span>
+                </span>
+                <a href="{{ url_for('admin_switch', user_id=user.id) }}" class="btn-small">View as</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

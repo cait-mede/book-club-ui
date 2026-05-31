@@ -13,6 +13,9 @@ app = Flask(__name__)
 app.secret_key = 'dev-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bookclub.db'
 
+ADMIN_EMAIL = 'admin@bookclub.test'
+ADMIN_PASSWORD = 'admin123'
+
 # ----- EMAIL CONFIG -----
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
@@ -24,6 +27,13 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 db = SQLAlchemy(app)
 mail = Mail(app)
+
+
+@app.context_processor
+def inject_admin_context():
+    if session.get('is_admin'):
+        return {'is_admin': True, 'all_users': User.query.order_by(User.name).all()}
+    return {'is_admin': False, 'all_users': []}
 
 
 class User(db.Model):
@@ -131,11 +141,33 @@ def get_personality_from_ai(preferences):
 
 
 def send_email(to, subject, body):
+    if not app.config.get('MAIL_USERNAME'):
+        print(f"\n[EMAIL] To: {to}\nSubject: {subject}\n{body}\n")
+        return
     try:
         msg = Message(subject=subject, recipients=[to], body=body)
         mail.send(msg)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[EMAIL ERROR] {e}")
+
+
+@app.route('/admin')
+def admin_panel():
+    if not session.get('is_admin'):
+        return redirect(url_for('login'))
+    return render_template('admin.html', users=User.query.order_by(User.name).all())
+
+
+@app.route('/admin/switch/<int:user_id>')
+def admin_switch(user_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('login'))
+    user = User.query.get(user_id)
+    if user:
+        session['user_id'] = user.id
+        session['user_name'] = user.name
+    next_page = request.args.get('next', '')
+    return redirect(next_page or url_for('dashboard'))
 
 
 @app.route('/')
@@ -148,7 +180,31 @@ def dashboard():
     if not session.get('user_id'):
         return redirect(url_for('login'))
     user = User.query.get(session['user_id'])
-    return render_template('dashboard.html', user=user)
+
+    memberships = GroupMembership.query.filter_by(user_id=session['user_id'], status='approved').all()
+    groups = [Group.query.get(m.group_id) for m in memberships]
+
+    upcoming_meetings = []
+    for group in groups:
+        try:
+            resp = requests.get(
+                f'{SCHEDULING_SERVICE}/schedules',
+                params={'app_id': 'book_club', 'entity_id': str(group.id)},
+                timeout=2
+            )
+            if resp.status_code == 200:
+                for schedule in resp.json():
+                    if schedule['confirmed_slot'] is not None:
+                        slot = schedule['slots'][schedule['confirmed_slot']]
+                        upcoming_meetings.append({
+                            'group': group,
+                            'slot_text': slot['text'],
+                            'book': schedule.get('book', ''),
+                        })
+        except Exception:
+            pass
+
+    return render_template('dashboard.html', user=user, upcoming_meetings=upcoming_meetings)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -159,6 +215,11 @@ def login():
         email = request.form['email']
         password = request.form['password']
         next_page = request.form.get('next', '')
+        if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
+            session['is_admin'] = True
+            session['user_id'] = None
+            session['user_name'] = 'Admin'
+            return redirect(url_for('admin_panel'))
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session['user_id'] = user.id
@@ -290,6 +351,7 @@ def approve_member(membership_id):
         if action == 'accept':
             membership.status = 'approved'
             db.session.commit()
+            _invite_late_joiner(group.id, requester)
             send_email(
                 to=requester.email,
                 subject=f'You have been approved to join {group.name}!',
@@ -382,6 +444,7 @@ def accept_invite(token):
                 db.session.add(membership)
             group_invite.used = True
             db.session.commit()
+            _invite_late_joiner(group.id, User.query.get(session['user_id']))
         return redirect(url_for('my_groups'))
     return render_template('accept_invite.html', group=group, invalid=False, wrong_account=False)
 
@@ -402,8 +465,47 @@ def club_detail(group_id):
     is_member = any(m.id == session['user_id'] for m in members)
     is_creator = group.creator_id == session['user_id']
     creator = User.query.get(group.creator_id)
+
+    polls = []
+    try:
+        resp = requests.get(
+            f'{POLLING_SERVICE}/polls',
+            params={'app_id': 'book_club', 'entity_id': str(group_id)},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            polls = resp.json()
+    except Exception:
+        pass
+
+    schedules = []
+    try:
+        resp = requests.get(
+            f'{SCHEDULING_SERVICE}/schedules',
+            params={'app_id': 'book_club', 'entity_id': str(group_id)},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            schedules = resp.json()
+    except Exception:
+        pass
+
+    meetings = []
+    try:
+        resp = requests.get(
+            f'{INVITE_SERVICE}/meetings',
+            params={'app_id': 'book_club', 'entity_id': str(group_id)},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            meetings = resp.json()
+    except Exception:
+        pass
+
     return render_template('club_detail.html', group=group, members=members,
-                           is_member=is_member, is_creator=is_creator, creator=creator)
+                           is_member=is_member, is_creator=is_creator, creator=creator,
+                           polls=polls, schedules=schedules, meetings=meetings,
+                           user_id=str(session['user_id']))
 
 
 @app.route('/profile')
@@ -455,6 +557,345 @@ def search_books():
         error = 'Could not reach the book database. Please try again.'
 
     return render_template('search_books.html', books=books, query=query, error=error, auto=auto, preferences=preferences)
+
+
+@app.route('/club/<int:group_id>/poll', methods=['POST'])
+def create_poll(group_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != session['user_id']:
+        return redirect(url_for('club_detail', group_id=group_id))
+
+    question = "What should we read next?"
+    options = [o.strip() for o in request.form['options'].splitlines() if o.strip()]
+    if len(options) >= 2:
+        try:
+            requests.post(
+                f'{POLLING_SERVICE}/polls',
+                json={
+                    'app_id': 'book_club',
+                    'entity_id': str(group_id),
+                    'question': question,
+                    'options': options,
+                    'created_by': str(session['user_id']),
+                },
+                timeout=3
+            )
+        except Exception:
+            pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+def _winning_option(polls, poll_id):
+    for poll in polls:
+        if poll['poll_id'] == poll_id:
+            options = poll['options']
+            if options:
+                return max(options, key=lambda o: o['votes'])['text']
+    return None
+
+
+def _set_up_next(group_id, winner):
+    group = Group.query.get(group_id)
+    if group and winner:
+        group.up_next = winner
+        db.session.commit()
+
+
+@app.route('/club/<int:group_id>/poll/<int:poll_id>/vote', methods=['POST'])
+def cast_vote(group_id, poll_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+
+    option_index = request.form.get('option_index')
+    if option_index is not None:
+        try:
+            requests.post(
+                f'{POLLING_SERVICE}/polls/{poll_id}/vote',
+                json={'user_id': str(session['user_id']), 'option_index': int(option_index)},
+                timeout=3
+            )
+
+            member_ids = {
+                str(m.user_id)
+                for m in GroupMembership.query.filter_by(group_id=group_id, status='approved').all()
+            }
+            polls_resp = requests.get(
+                f'{POLLING_SERVICE}/polls',
+                params={'app_id': 'book_club', 'entity_id': str(group_id)},
+                timeout=3
+            )
+            if polls_resp.status_code == 200:
+                polls = polls_resp.json()
+                for poll in polls:
+                    if poll['poll_id'] == poll_id and not poll['closed']:
+                        if member_ids == set(poll['voters'].keys()):
+                            requests.post(f'{POLLING_SERVICE}/polls/{poll_id}/close', timeout=3)
+                            _set_up_next(group_id, _winning_option(polls, poll_id))
+        except Exception:
+            pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+@app.route('/club/<int:group_id>/poll/<int:poll_id>/close', methods=['POST'])
+def close_poll(group_id, poll_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if group and group.creator_id == session['user_id']:
+        try:
+            polls_resp = requests.get(
+                f'{POLLING_SERVICE}/polls',
+                params={'app_id': 'book_club', 'entity_id': str(group_id)},
+                timeout=3
+            )
+            requests.post(f'{POLLING_SERVICE}/polls/{poll_id}/close', timeout=3)
+            if polls_resp.status_code == 200:
+                _set_up_next(group_id, _winning_option(polls_resp.json(), poll_id))
+        except Exception:
+            pass
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+@app.route('/club/<int:group_id>/schedule', methods=['POST'])
+def create_schedule(group_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != session['user_id']:
+        return redirect(url_for('club_detail', group_id=group_id))
+
+    slots = [s.strip() for s in request.form['slots'].splitlines() if s.strip()]
+    if slots:
+        try:
+            requests.post(
+                f'{SCHEDULING_SERVICE}/schedules',
+                json={
+                    'app_id': 'book_club',
+                    'entity_id': str(group_id),
+                    'slots': slots,
+                    'created_by': str(session['user_id']),
+                    'book': group.current_book or '',
+                },
+                timeout=3
+            )
+        except Exception:
+            pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+@app.route('/club/<int:group_id>/schedule/<int:schedule_id>/availability', methods=['POST'])
+def submit_availability(group_id, schedule_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+
+    available_slots = [int(i) for i in request.form.getlist('available_slots')]
+    try:
+        requests.post(
+            f'{SCHEDULING_SERVICE}/schedules/{schedule_id}/availability',
+            json={'user_id': str(session['user_id']), 'available_slots': available_slots},
+            timeout=3
+        )
+    except Exception:
+        pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+def _notify_meeting_members(group_id, meeting_id):
+    members = (
+        User.query
+        .join(GroupMembership, GroupMembership.user_id == User.id)
+        .filter(GroupMembership.group_id == group_id, GroupMembership.status == 'approved')
+        .all()
+    )
+    try:
+        requests.post(
+            f'{INVITE_SERVICE}/meetings/{meeting_id}/members',
+            json={'members': [{'user_id': str(m.id), 'email': m.email, 'name': m.name} for m in members]},
+            timeout=5
+        )
+    except Exception:
+        pass
+
+
+def _invite_late_joiner(group_id, user):
+    try:
+        resp = requests.get(
+            f'{INVITE_SERVICE}/meetings',
+            params={'app_id': 'book_club', 'entity_id': str(group_id)},
+            timeout=3
+        )
+        for meeting in resp.json():
+            requests.post(
+                f'{INVITE_SERVICE}/meetings/{meeting["meeting_id"]}/members',
+                json={'members': [{'user_id': str(user.id), 'email': user.email, 'name': user.name}]},
+                timeout=5
+            )
+    except Exception:
+        pass
+
+
+@app.route('/club/<int:group_id>/schedule/<int:schedule_id>/confirm', methods=['POST'])
+def confirm_slot(group_id, schedule_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != session['user_id']:
+        return redirect(url_for('club_detail', group_id=group_id))
+
+    slot_index = request.form.get('slot_index')
+    slot_text = request.form.get('slot_text', '')
+    if slot_index is not None:
+        try:
+            requests.post(
+                f'{SCHEDULING_SERVICE}/schedules/{schedule_id}/confirm',
+                json={'slot_index': int(slot_index)},
+                timeout=3
+            )
+        except Exception:
+            pass
+
+        try:
+            resp = requests.post(
+                f'{INVITE_SERVICE}/meetings',
+                json={
+                    'app_id': 'book_club',
+                    'entity_id': str(group_id),
+                    'slot_text': slot_text,
+                    'created_by': str(session['user_id']),
+                    'group_name': group.name,
+                    'book': group.current_book or '',
+                },
+                timeout=3
+            )
+            meeting_id = resp.json().get('meeting_id')
+            if meeting_id:
+                _notify_meeting_members(group_id, meeting_id)
+        except Exception:
+            pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+@app.route('/club/<int:group_id>/schedule/<int:schedule_id>/cancel', methods=['POST'])
+def cancel_meeting(group_id, schedule_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != session['user_id']:
+        return redirect(url_for('club_detail', group_id=group_id))
+
+    try:
+        requests.delete(f'{SCHEDULING_SERVICE}/schedules/{schedule_id}', timeout=3)
+    except Exception:
+        pass
+
+    meeting_id = request.form.get('meeting_id')
+    if meeting_id:
+        try:
+            requests.post(f'{INVITE_SERVICE}/meetings/{meeting_id}/cancel', timeout=5)
+        except Exception:
+            pass
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+@app.route('/club/<int:group_id>/complete-book', methods=['POST'])
+def complete_book(group_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != session['user_id'] or not group.current_book:
+        return redirect(url_for('club_detail', group_id=group_id))
+
+    existing = [l.strip() for l in (group.completed_books or '').splitlines() if l.strip()]
+    if group.current_book.strip() not in existing:
+        existing.append(group.current_book.strip())
+    group.completed_books = '\n'.join(existing)
+    group.current_book = group.up_next or ''
+    group.up_next = ''
+    db.session.commit()
+
+    return redirect(url_for('club_detail', group_id=group_id))
+
+
+RATING_SERVICE = 'http://localhost:8000'
+POLLING_SERVICE = 'http://localhost:8001'
+SCHEDULING_SERVICE = 'http://localhost:8002'
+INVITE_SERVICE = 'http://localhost:8003'
+
+
+@app.route('/my-books')
+def my_books():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+
+    memberships = GroupMembership.query.filter_by(user_id=session['user_id'], status='approved').all()
+    groups = [Group.query.get(m.group_id) for m in memberships]
+
+    seen = {}
+    for group in groups:
+        if group.completed_books:
+            for line in group.completed_books.splitlines():
+                title = line.strip()
+                if title:
+                    seen[title.lower()] = title
+
+    books = []
+    user_id_str = str(session['user_id'])
+    for normalized, title in seen.items():
+        user_rating = None
+        user_comment = None
+        try:
+            resp = requests.get(
+                f'{RATING_SERVICE}/ratings',
+                params={'app_id': 'book_club', 'entity_id': normalized},
+                timeout=3
+            )
+            if resp.status_code == 200:
+                for entry in resp.json().get('ratings', []):
+                    if entry[0] == user_id_str:
+                        user_rating = entry[1]
+                        user_comment = entry[2]
+                        break
+        except Exception:
+            pass
+        books.append({'title': title, 'normalized': normalized, 'rating': user_rating, 'comment': user_comment})
+
+    books.sort(key=lambda b: b['title'].lower())
+    return render_template('my_books.html', books=books)
+
+
+@app.route('/rate-book', methods=['POST'])
+def rate_book():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+
+    normalized = request.form['normalized']
+    rating = int(request.form['rating'])
+    comment = request.form.get('comment', '').strip() or None
+
+    try:
+        requests.post(
+            f'{RATING_SERVICE}/ratings',
+            json={
+                'app_id': 'book_club',
+                'entity_id': normalized,
+                'user_id': str(session['user_id']),
+                'rating': rating,
+                'comment': comment,
+            },
+            timeout=3
+        )
+    except Exception:
+        pass
+
+    return redirect(url_for('my_books'))
 
 
 if __name__ == '__main__':

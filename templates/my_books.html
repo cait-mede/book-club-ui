@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-content">
+    <a href="{{ url_for('dashboard') }}" class="back-btn">← Back to Dashboard</a>
+    <h2>My Books</h2>
+
+    {% if books %}
+        <div class="club-detail-card">
+            <ul class="member-list">
+                {% for book in books %}
+                <li style="padding: 12px 0; border-bottom: 1px solid #eee;">
+                    <strong>{{ book.title }}</strong>
+
+                    {% if book.rating %}
+                        <span style="margin-left: 10px; color: #f5a623;">
+                            {% for i in range(book.rating) %}★{% endfor %}{% for i in range(5 - book.rating) %}☆{% endfor %}
+                        </span>
+                        {% if book.comment %}
+                            <span style="margin-left: 8px; color: #666; font-style: italic;">"{{ book.comment }}"</span>
+                        {% endif %}
+                        <details style="margin-top: 6px;">
+                            <summary style="cursor: pointer; color: #4169e1; font-size: 13px;">Update rating</summary>
+                            <form method="POST" action="{{ url_for('rate_book') }}" style="margin-top: 8px;">
+                                <input type="hidden" name="normalized" value="{{ book.normalized }}">
+                                <select name="rating" required style="margin-right: 8px;">
+                                    {% for n in [1,2,3,4,5] %}
+                                        <option value="{{ n }}" {% if book.rating == n %}selected{% endif %}>{{ n }} star{{ 's' if n > 1 }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" name="comment" value="{{ book.comment or '' }}" placeholder="Comment (optional)" style="margin-right: 8px; width: 200px;">
+                                <button type="submit" class="btn-small">Save</button>
+                            </form>
+                        </details>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('rate_book') }}" style="display: inline-block; margin-left: 12px;">
+                            <input type="hidden" name="normalized" value="{{ book.normalized }}">
+                            <select name="rating" required style="margin-right: 6px;">
+                                <option value="" disabled selected>Rate</option>
+                                {% for n in [1,2,3,4,5] %}
+                                    <option value="{{ n }}">{{ n }} star{{ 's' if n > 1 }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="comment" placeholder="Comment (optional)" style="margin-right: 6px; width: 180px;">
+                            <button type="submit" class="btn-small">Submit</button>
+                        </form>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <div class="club-detail-card">
+            <p style="color: #888;">No completed books yet. Books marked as completed in your clubs will appear here.</p>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

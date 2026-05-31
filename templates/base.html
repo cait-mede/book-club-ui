@@ -21,6 +21,26 @@
         </div>
     </nav>
 
+    {% if is_admin %}
+    <div style="background:#e65100; color:white; padding:8px 20px; display:flex; align-items:center; gap:16px; font-size:13px; flex-wrap:wrap;">
+        <strong>🔧 Admin mode</strong>
+        <span>Viewing as: <strong>{{ session.user_name }}</strong></span>
+        <select id="user-switcher" style="padding:3px 6px; border-radius:4px; border:none; font-size:13px;">
+            {% for u in all_users %}
+            <option value="{{ u.id }}" {% if u.id == session.user_id %}selected{% endif %}>{{ u.name }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('admin_panel') }}" style="color:white; font-size:13px;">All users</a>
+        <a href="{{ url_for('logout') }}" style="color:white; font-size:13px; margin-left:auto;">Exit admin</a>
+    </div>
+    <script>
+        document.getElementById('user-switcher').addEventListener('change', function() {
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = '/admin/switch/' + this.value + '?next=' + next;
+        });
+    </script>
+    {% endif %}
+
     <main>
         {% block content %}{% endblock %}
     </main>

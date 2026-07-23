@@ -1,11 +1,15 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-import requests
+from ariadne import graphql_sync
+from ariadne.explorer import ExplorerGraphiQL
 import secrets
 import os
+
+import services
+import graphql_schema
 
 load_dotenv()
 
@@ -85,61 +89,6 @@ with app.app_context():
     db.create_all()
 
 
-def get_personality_from_ai(preferences):
-    """Call AI service to generate book personality and image."""
-    try:
-        print(f"[DEBUG] Calling AI service with preferences: {preferences}")
-        
-        # Request 1: Get personality text
-        text_response = requests.post(
-            'http://localhost:3000/generate',
-            json={
-                "prompt": f"Give me a one or two word book personality for someone who likes: {preferences}. Just the personality phrase, nothing else."
-            },
-            timeout=10
-        )
-        print(f"[DEBUG] Text response status: {text_response.status_code}")
-        print(f"[DEBUG] Text response body: {text_response.text}")
-        
-        if text_response.status_code != 200:
-            print(f"[ERROR] Text request failed")
-            return "I'm stumped", None
-            
-        text_data = text_response.json()
-        personality = text_data.get('response') or text_data.get('personality') or 'Curious Reader'
-        print(f"[DEBUG] Extracted personality: {personality}")
-        
-        # Request 2: Get image for the personality
-        image_response = requests.post(
-            'http://localhost:3000/generate',
-            json={
-                "prompt": f"Create an simple picture representing this book personality: '{personality}'. Style: watercolor, literary art, elegant."
-            },
-            timeout=60
-        )
-        print(f"[DEBUG] Image response status: {image_response.status_code}")
-        print(f"[DEBUG] Image response body: {image_response.text[:200]}...") 
-        
-        image_src = None
-        if image_response.status_code == 200:
-            image_data = image_response.json()
-            b64 = image_data.get('response') or image_data.get('image')
-            if b64:
-                image_src = f"data:image/png;base64,{b64}"
-            print(f"[DEBUG] Image data received, length: {len(b64) if b64 else 0}")
-        else:
-            print(f"[WARNING] Image request failed, will return personality only")
-
-        return personality.strip(), image_src
-        
-    except Exception as e:
-        print(f"[ERROR] Exception calling AI service: {e}")
-        import traceback
-        traceback.print_exc()
-    print("[DEBUG] Returning fallback values")
-    return "I'm stumped", None
-
-
 def send_email(to, subject, body):
     if not app.config.get('MAIL_USERNAME'):
         print(f"\n[EMAIL] To: {to}\nSubject: {subject}\n{body}\n")
@@ -149,6 +98,26 @@ def send_email(to, subject, body):
         mail.send(msg)
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
+
+
+_graphql_explorer_html = ExplorerGraphiQL().html(None)
+
+
+@app.route('/graphql', methods=['GET'])
+def graphql_explorer():
+    return _graphql_explorer_html, 200
+
+
+@app.route('/graphql', methods=['POST'])
+def graphql_server():
+    data = request.get_json()
+    success, result = graphql_sync(
+        graphql_schema.schema,
+        data,
+        context_value=graphql_schema.get_context_value(request),
+        debug=app.debug,
+    )
+    return jsonify(result), 200 if success else 400
 
 
 @app.route('/admin')
@@ -186,23 +155,14 @@ def dashboard():
 
     upcoming_meetings = []
     for group in groups:
-        try:
-            resp = requests.get(
-                f'{SCHEDULING_SERVICE}/schedules',
-                params={'app_id': 'book_club', 'entity_id': str(group.id)},
-                timeout=2
-            )
-            if resp.status_code == 200:
-                for schedule in resp.json():
-                    if schedule['confirmed_slot'] is not None:
-                        slot = schedule['slots'][schedule['confirmed_slot']]
-                        upcoming_meetings.append({
-                            'group': group,
-                            'slot_text': slot['text'],
-                            'book': schedule.get('book', ''),
-                        })
-        except Exception:
-            pass
+        for schedule in services.get_schedules(group.id, timeout=2):
+            if schedule['confirmed_slot'] is not None:
+                slot = schedule['slots'][schedule['confirmed_slot']]
+                upcoming_meetings.append({
+                    'group': group,
+                    'slot_text': slot['text'],
+                    'book': schedule.get('book', ''),
+                })
 
     return render_template('dashboard.html', user=user, upcoming_meetings=upcoming_meetings)
 
@@ -351,7 +311,7 @@ def approve_member(membership_id):
         if action == 'accept':
             membership.status = 'approved'
             db.session.commit()
-            _invite_late_joiner(group.id, requester)
+            services.invite_late_joiner_to_meetings(group.id, requester)
             send_email(
                 to=requester.email,
                 subject=f'You have been approved to join {group.name}!',
@@ -444,7 +404,7 @@ def accept_invite(token):
                 db.session.add(membership)
             group_invite.used = True
             db.session.commit()
-            _invite_late_joiner(group.id, User.query.get(session['user_id']))
+            services.invite_late_joiner_to_meetings(group.id, User.query.get(session['user_id']))
         return redirect(url_for('my_groups'))
     return render_template('accept_invite.html', group=group, invalid=False, wrong_account=False)
 
@@ -466,41 +426,9 @@ def club_detail(group_id):
     is_creator = group.creator_id == session['user_id']
     creator = User.query.get(group.creator_id)
 
-    polls = []
-    try:
-        resp = requests.get(
-            f'{POLLING_SERVICE}/polls',
-            params={'app_id': 'book_club', 'entity_id': str(group_id)},
-            timeout=3
-        )
-        if resp.status_code == 200:
-            polls = resp.json()
-    except Exception:
-        pass
-
-    schedules = []
-    try:
-        resp = requests.get(
-            f'{SCHEDULING_SERVICE}/schedules',
-            params={'app_id': 'book_club', 'entity_id': str(group_id)},
-            timeout=3
-        )
-        if resp.status_code == 200:
-            schedules = resp.json()
-    except Exception:
-        pass
-
-    meetings = []
-    try:
-        resp = requests.get(
-            f'{INVITE_SERVICE}/meetings',
-            params={'app_id': 'book_club', 'entity_id': str(group_id)},
-            timeout=3
-        )
-        if resp.status_code == 200:
-            meetings = resp.json()
-    except Exception:
-        pass
+    polls = services.get_polls(group_id)
+    schedules = services.get_schedules(group_id)
+    meetings = services.get_meetings(group_id)
 
     return render_template('club_detail.html', group=group, members=members,
                            is_member=is_member, is_creator=is_creator, creator=creator,
@@ -526,7 +454,7 @@ def generate_personality():
     if not user:
         return {'error': 'User not found'}, 404
     # Generate on-the-fly, don't save
-    personality, image = get_personality_from_ai(user.preferences or 'mystery, fiction')
+    personality, image = services.generate_personality(user.preferences or 'mystery, fiction')
     return {'personality': personality, 'image': image}, 200
 
 
@@ -546,15 +474,11 @@ def search_books():
     if not query:
         auto = True
 
-    try:
-        response = requests.get(
-            'https://openlibrary.org/search.json',
-            params={'q': search_term, 'limit': 18},
-            timeout=5
-        )
-        books = response.json().get('docs', [])
-    except Exception:
+    docs = services.search_open_library(search_term)
+    if docs is None:
         error = 'Could not reach the book database. Please try again.'
+    else:
+        books = docs
 
     return render_template('search_books.html', books=books, query=query, error=error, auto=auto, preferences=preferences)
 
@@ -570,31 +494,9 @@ def create_poll(group_id):
     question = "What should we read next?"
     options = [o.strip() for o in request.form['options'].splitlines() if o.strip()]
     if len(options) >= 2:
-        try:
-            requests.post(
-                f'{POLLING_SERVICE}/polls',
-                json={
-                    'app_id': 'book_club',
-                    'entity_id': str(group_id),
-                    'question': question,
-                    'options': options,
-                    'created_by': str(session['user_id']),
-                },
-                timeout=3
-            )
-        except Exception:
-            pass
+        services.create_poll(group_id, question, options, session['user_id'])
 
     return redirect(url_for('club_detail', group_id=group_id))
-
-
-def _winning_option(polls, poll_id):
-    for poll in polls:
-        if poll['poll_id'] == poll_id:
-            options = poll['options']
-            if options:
-                return max(options, key=lambda o: o['votes'])['text']
-    return None
 
 
 def _set_up_next(group_id, winner):
@@ -611,31 +513,18 @@ def cast_vote(group_id, poll_id):
 
     option_index = request.form.get('option_index')
     if option_index is not None:
-        try:
-            requests.post(
-                f'{POLLING_SERVICE}/polls/{poll_id}/vote',
-                json={'user_id': str(session['user_id']), 'option_index': int(option_index)},
-                timeout=3
-            )
+        services.cast_poll_vote(poll_id, session['user_id'], int(option_index))
 
-            member_ids = {
-                str(m.user_id)
-                for m in GroupMembership.query.filter_by(group_id=group_id, status='approved').all()
-            }
-            polls_resp = requests.get(
-                f'{POLLING_SERVICE}/polls',
-                params={'app_id': 'book_club', 'entity_id': str(group_id)},
-                timeout=3
-            )
-            if polls_resp.status_code == 200:
-                polls = polls_resp.json()
-                for poll in polls:
-                    if poll['poll_id'] == poll_id and not poll['closed']:
-                        if member_ids == set(poll['voters'].keys()):
-                            requests.post(f'{POLLING_SERVICE}/polls/{poll_id}/close', timeout=3)
-                            _set_up_next(group_id, _winning_option(polls, poll_id))
-        except Exception:
-            pass
+        member_ids = {
+            str(m.user_id)
+            for m in GroupMembership.query.filter_by(group_id=group_id, status='approved').all()
+        }
+        polls = services.get_polls(group_id)
+        for poll in polls:
+            if poll['poll_id'] == poll_id and not poll['closed']:
+                if member_ids == set(poll['voters'].keys()):
+                    services.close_poll(poll_id)
+                    _set_up_next(group_id, services.winning_option(polls, poll_id))
 
     return redirect(url_for('club_detail', group_id=group_id))
 
@@ -646,17 +535,9 @@ def close_poll(group_id, poll_id):
         return redirect(url_for('login'))
     group = Group.query.get(group_id)
     if group and group.creator_id == session['user_id']:
-        try:
-            polls_resp = requests.get(
-                f'{POLLING_SERVICE}/polls',
-                params={'app_id': 'book_club', 'entity_id': str(group_id)},
-                timeout=3
-            )
-            requests.post(f'{POLLING_SERVICE}/polls/{poll_id}/close', timeout=3)
-            if polls_resp.status_code == 200:
-                _set_up_next(group_id, _winning_option(polls_resp.json(), poll_id))
-        except Exception:
-            pass
+        polls = services.get_polls(group_id)
+        services.close_poll(poll_id)
+        _set_up_next(group_id, services.winning_option(polls, poll_id))
     return redirect(url_for('club_detail', group_id=group_id))
 
 
@@ -670,20 +551,7 @@ def create_schedule(group_id):
 
     slots = [s.strip() for s in request.form['slots'].splitlines() if s.strip()]
     if slots:
-        try:
-            requests.post(
-                f'{SCHEDULING_SERVICE}/schedules',
-                json={
-                    'app_id': 'book_club',
-                    'entity_id': str(group_id),
-                    'slots': slots,
-                    'created_by': str(session['user_id']),
-                    'book': group.current_book or '',
-                },
-                timeout=3
-            )
-        except Exception:
-            pass
+        services.create_schedule(group_id, slots, session['user_id'], group.current_book)
 
     return redirect(url_for('club_detail', group_id=group_id))
 
@@ -694,14 +562,7 @@ def submit_availability(group_id, schedule_id):
         return redirect(url_for('login'))
 
     available_slots = [int(i) for i in request.form.getlist('available_slots')]
-    try:
-        requests.post(
-            f'{SCHEDULING_SERVICE}/schedules/{schedule_id}/availability',
-            json={'user_id': str(session['user_id']), 'available_slots': available_slots},
-            timeout=3
-        )
-    except Exception:
-        pass
+    services.submit_availability(schedule_id, session['user_id'], available_slots)
 
     return redirect(url_for('club_detail', group_id=group_id))
 
@@ -713,31 +574,10 @@ def _notify_meeting_members(group_id, meeting_id):
         .filter(GroupMembership.group_id == group_id, GroupMembership.status == 'approved')
         .all()
     )
-    try:
-        requests.post(
-            f'{INVITE_SERVICE}/meetings/{meeting_id}/members',
-            json={'members': [{'user_id': str(m.id), 'email': m.email, 'name': m.name} for m in members]},
-            timeout=5
-        )
-    except Exception:
-        pass
-
-
-def _invite_late_joiner(group_id, user):
-    try:
-        resp = requests.get(
-            f'{INVITE_SERVICE}/meetings',
-            params={'app_id': 'book_club', 'entity_id': str(group_id)},
-            timeout=3
-        )
-        for meeting in resp.json():
-            requests.post(
-                f'{INVITE_SERVICE}/meetings/{meeting["meeting_id"]}/members',
-                json={'members': [{'user_id': str(user.id), 'email': user.email, 'name': user.name}]},
-                timeout=5
-            )
-    except Exception:
-        pass
+    services.notify_meeting_members(
+        meeting_id,
+        [{'user_id': str(m.id), 'email': m.email, 'name': m.name} for m in members],
+    )
 
 
 @app.route('/club/<int:group_id>/schedule/<int:schedule_id>/confirm', methods=['POST'])
@@ -751,33 +591,11 @@ def confirm_slot(group_id, schedule_id):
     slot_index = request.form.get('slot_index')
     slot_text = request.form.get('slot_text', '')
     if slot_index is not None:
-        try:
-            requests.post(
-                f'{SCHEDULING_SERVICE}/schedules/{schedule_id}/confirm',
-                json={'slot_index': int(slot_index)},
-                timeout=3
-            )
-        except Exception:
-            pass
+        services.confirm_schedule_slot(schedule_id, int(slot_index))
 
-        try:
-            resp = requests.post(
-                f'{INVITE_SERVICE}/meetings',
-                json={
-                    'app_id': 'book_club',
-                    'entity_id': str(group_id),
-                    'slot_text': slot_text,
-                    'created_by': str(session['user_id']),
-                    'group_name': group.name,
-                    'book': group.current_book or '',
-                },
-                timeout=3
-            )
-            meeting_id = resp.json().get('meeting_id')
-            if meeting_id:
-                _notify_meeting_members(group_id, meeting_id)
-        except Exception:
-            pass
+        meeting_id = services.create_meeting(group_id, slot_text, session['user_id'], group.name, group.current_book)
+        if meeting_id:
+            _notify_meeting_members(group_id, meeting_id)
 
     return redirect(url_for('club_detail', group_id=group_id))
 
@@ -790,17 +608,11 @@ def cancel_meeting(group_id, schedule_id):
     if not group or group.creator_id != session['user_id']:
         return redirect(url_for('club_detail', group_id=group_id))
 
-    try:
-        requests.delete(f'{SCHEDULING_SERVICE}/schedules/{schedule_id}', timeout=3)
-    except Exception:
-        pass
+    services.cancel_schedule(schedule_id)
 
     meeting_id = request.form.get('meeting_id')
     if meeting_id:
-        try:
-            requests.post(f'{INVITE_SERVICE}/meetings/{meeting_id}/cancel', timeout=5)
-        except Exception:
-            pass
+        services.cancel_meeting(meeting_id)
 
     return redirect(url_for('club_detail', group_id=group_id))
 
@@ -824,12 +636,6 @@ def complete_book(group_id):
     return redirect(url_for('club_detail', group_id=group_id))
 
 
-RATING_SERVICE = 'http://localhost:8000'
-POLLING_SERVICE = 'http://localhost:8001'
-SCHEDULING_SERVICE = 'http://localhost:8002'
-INVITE_SERVICE = 'http://localhost:8003'
-
-
 @app.route('/my-books')
 def my_books():
     if not session.get('user_id'):
@@ -851,20 +657,11 @@ def my_books():
     for normalized, title in seen.items():
         user_rating = None
         user_comment = None
-        try:
-            resp = requests.get(
-                f'{RATING_SERVICE}/ratings',
-                params={'app_id': 'book_club', 'entity_id': normalized},
-                timeout=3
-            )
-            if resp.status_code == 200:
-                for entry in resp.json().get('ratings', []):
-                    if entry[0] == user_id_str:
-                        user_rating = entry[1]
-                        user_comment = entry[2]
-                        break
-        except Exception:
-            pass
+        for entry in services.get_ratings(normalized):
+            if entry[0] == user_id_str:
+                user_rating = entry[1]
+                user_comment = entry[2]
+                break
         books.append({'title': title, 'normalized': normalized, 'rating': user_rating, 'comment': user_comment})
 
     books.sort(key=lambda b: b['title'].lower())
@@ -880,20 +677,7 @@ def rate_book():
     rating = int(request.form['rating'])
     comment = request.form.get('comment', '').strip() or None
 
-    try:
-        requests.post(
-            f'{RATING_SERVICE}/ratings',
-            json={
-                'app_id': 'book_club',
-                'entity_id': normalized,
-                'user_id': str(session['user_id']),
-                'rating': rating,
-                'comment': comment,
-            },
-            timeout=3
-        )
-    except Exception:
-        pass
+    services.submit_rating(normalized, session['user_id'], rating, comment)
 
     return redirect(url_for('my_books'))
 

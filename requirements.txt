@@ -4,3 +4,5 @@ flask-mail
 requests
 python-dotenv
 Werkzeug<3.0
+ariadne
+PyJWT
